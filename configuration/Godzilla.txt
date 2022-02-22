@@ -1,0 +1,71 @@
+enable
+configure terminal
+hostname Godzilla
+enable secret cisco
+line console 0
+password cisco
+login
+exit
+line vty 0 4
+password cisco
+login
+exit
+service password-encryption
+banner motd $ Welcome to Godzilla $
+interface ethernet 0/0
+ip address 192.168.12.1 255.255.255.0
+no shutdown
+exit
+interface loopback 0
+ip address 1.1.1.1 255.255.255.0
+exit
+interface loopback 1
+ip address 11.11.11.11 255.255.255.0
+exit
+
+router eigrp 1
+network 192.168.12.0 0.0.0.255
+eigrp router-id 1.1.1.1
+exit
+
+interface Tunnel1
+ip address 192.168.13.1 255.255.255.0
+ip mtu 1400
+ip tcp adjust-mss 1360
+tunnel source 192.168.12.1
+tunnel destination 192.168.23.3
+exit
+
+router ospf 1
+network 11.11.11.11 0.0.0.255 area 0
+network 192.168.13.0 0.0.0.255 area 0
+router-id 1.1.1.1
+exit
+
+crypto isakmp policy 10
+authentication pre-share
+encryption aes 256
+hash sha
+group 5
+lifetime 3600
+crypto isakmp key 0 VAULT address 192.168.23.3
+crypto ipsec transform-set MYTRANS esp-aes 256 esp-sha-hmac
+exit
+crypto ipsec security-association lifetime seconds 1800
+
+access-list 100 permit gre host 192.168.12.1 host 192.168.23.3
+
+crypto map MYMAP 10 ipsec-isakmp
+match address 100
+set peer 192.168.23.3
+set pfs group5
+set transform-set MYTRANS
+set security-association lifetime seconds 1800
+exit
+
+int e0/0
+crypto map MYMAP
+exit
+
+exit
+copy running-config startup-config
